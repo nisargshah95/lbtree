@@ -150,7 +150,7 @@ static inline int insertTest(Int64 key[], int start, int end)
 
        for (int ii=start; ii<end; ii++) {
           key_type kk= key[ii];
-          the_treep->insert (kk, (void *) kk);
+          //the_treep->insert (kk, (void *) kk);
        } // end of for
 
        if (debug_test) {
@@ -164,6 +164,7 @@ static inline int insertTest(Int64 key[], int start, int end)
 
        return found;
 }
+
 
 /**
  * The test run for deletion operations
@@ -458,7 +459,7 @@ int parse_command (int argc, char **argv)
                                ? start+keys_per_thread : keynum);
                      for (int ii=start; ii<end; ii++) {
                         key_type kk= input->keys[2*ii+1];
-                        the_treep->insert (kk, (void *) kk);
+                        //the_treep->insert (kk, (void *) kk);
 		     }
 		});
 	    }
@@ -515,7 +516,7 @@ int parse_command (int argc, char **argv)
                                ? start+keys_per_thread : keynum);
                      for (int ii=start; ii<end; ii++) {
                         key_type kk= input->keys[2*ii];
-                        the_treep->insert (kk, (void *) kk);
+                        //the_treep->insert (kk, (void *) kk);
 		     }
 		});
 	    }
@@ -536,7 +537,7 @@ int parse_command (int argc, char **argv)
                                ? start+keys_per_thread : keynum);
                      for (int ii=start; ii<end; ii++) {
                         key_type kk= input->keys[2*ii];
-                        the_treep->insert (kk, (void *) kk);
+                        //the_treep->insert (kk, (void *) kk);
 		     }
 		});
 	    }
@@ -779,7 +780,7 @@ int parse_command (int argc, char **argv)
                      keyInput *cursor= input->openCursor(start, end-start);
                      for (int ii=start; ii<end; ii++) {
                         key_type kk= cursor->get_key(ii);
-                        the_treep->insert (kk, (void *) kk);
+                        //the_treep->insert (kk, (void *) kk);
                      }
                      input->closeCursor(cursor);
                 });
@@ -1001,4 +1002,3 @@ int parse_command (int argc, char **argv)
 
 	return 0;
 }
-

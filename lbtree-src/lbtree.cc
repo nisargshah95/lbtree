@@ -17,36 +17,37 @@
  */
 
 #include "lbtree.h"
+#include <chrono>
+#include <vector>
+#include <iostream>
+#include <algorithm>
 
-/* ----------------------------------------------------------------- *
- useful structure
- * ----------------------------------------------------------------- */
-static int last_slot_in_line[LEAF_KEY_NUM];
 
-static void initUseful(void)
-{
-    // line 0
-    last_slot_in_line[0]= 2;
-    last_slot_in_line[1]= 2;
-    last_slot_in_line[2]= 2;
+const int size = 10000010; // ops
+std::vector< std::pair<uint64_t, int> > ti(size, std::make_pair(0, 0));
+std::vector<uint64_t> ls(size, 0), li(size, 0), tr(size, 0),
+                      sp(size, 0), bin(size, 0), lin(size, 0);
+std::atomic_int op{-10000001}; // load phase offset
 
-    // line 1
-    last_slot_in_line[3]= 6;
-    last_slot_in_line[4]= 6;
-    last_slot_in_line[5]= 6;
-    last_slot_in_line[6]= 6;
+void printStats() {
+  std::sort(ti.begin(), ti.end());
 
-    // line 2
-    last_slot_in_line[7]= 10;
-    last_slot_in_line[8]= 10;
-    last_slot_in_line[9]= 10;
-    last_slot_in_line[10]=10;
+  op++;
+  std::vector<int> indexes = {0.5*op, 0.99*op, 0.999*op, 0.9999*op, 0.99999*op};
+  for (auto index: indexes) {
+    int op2 = ti[index].second;
+    std::cout << "op = " << op << ", index = " << index << ", op2 = " << op2 << std::endl;
 
-    // line 3
-    last_slot_in_line[11]=13;
-    last_slot_in_line[12]=13;
-    last_slot_in_line[13]=13;
+    std::cout << "ti[" << index << "] = " << ti[index].first << "ns\n";
+    std::cout << "ls[" << op2 << "] = " << ls[op2] << "ns\n";
+    std::cout << "li[" << op2 << "] = " << li[op2] << "ns\n";
+    std::cout << "tr[" << op2 << "] = " << tr[op2] << "ns\n";
+    std::cout << "sp[" << op2 << "] = " << sp[op2] << "ns\n";
+    std::cout << "bin[" << op2 << "] = " << bin[op2] << "ns\n";
+    std::cout << "lin[" << op2 << "] = " << lin[op2] << "ns\n";
+  }
 }
+
 
 /* ----------------------------------------------------------------- *
  bulk load
@@ -89,10 +90,10 @@ int lbtree::bulkloadSubtree(
 
     // 1. compute leaf and nonleaf number of keys
     int leaf_fill_num= (int)((float)LEAF_KEY_NUM * bfill);
-    leaf_fill_num= max(leaf_fill_num, 1);
+    leaf_fill_num= maxx(leaf_fill_num, 1);
 
     int nonleaf_fill_num= (int)((float)NON_LEAF_KEY_NUM * bfill);
-    nonleaf_fill_num= max(nonleaf_fill_num, 1);
+    nonleaf_fill_num= maxx(nonleaf_fill_num, 1);
 
 
     // 2. compute number of nodes
@@ -234,7 +235,7 @@ int lbtree::bulkloadToptree(
 
     // 1. compute nonleaf number of keys
     int nonleaf_fill_num= (int)((float)NON_LEAF_KEY_NUM * bfill);
-    nonleaf_fill_num= max(nonleaf_fill_num, 1);
+    nonleaf_fill_num= maxx(nonleaf_fill_num, 1);
 
 
     // 2. compute number of nodes
@@ -463,6 +464,11 @@ int lbtree::bulkload (int keynum, keyInput *input, float bfill)
 
 void * lbtree::lookup (key_type key, int *pos)
 {
+    op++;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start, stop;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start2, stop2;
+    start = std::chrono::high_resolution_clock::now();
+
     bnode *p;
     bleaf *lp;
     int i,t,m,b;
@@ -505,6 +511,7 @@ Again1:
     }
     
     // 3. search leaf node
+    start2 = std::chrono::high_resolution_clock::now();
     lp= (bleaf *)p;
 
     // prefetch the entire node
@@ -547,6 +554,20 @@ Again1:
     _xend();
 
     *pos=ret_pos;
+
+    stop2 = std::chrono::high_resolution_clock::now();
+    if (op >= 0) {
+      ls[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                          (stop2-start2).count());
+    }
+
+    stop = std::chrono::high_resolution_clock::now();
+    if (op >= 0) {
+      ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                          (stop-start).count());
+      ti[op].second = op;
+    }
+
     return (void *)lp;
 }
 
@@ -588,8 +609,14 @@ void lbtree::qsortBleaf(bleaf *p, int start, int end, int pos[])
  
  * ---------------------------------------------------------- */
 
-void lbtree::insert (key_type key, void *ptr)
+void lbtree::insert (key_type key, const void *ptr)
 {
+    op++;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start, stop;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start2, stop2;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start3, stop3;
+    start = std::chrono::high_resolution_clock::now();
+
     // record the path from root to leaf
     // parray[level] is a node on the path
     // child ppos[level] of parray[level] == parray[level-1]
@@ -611,7 +638,7 @@ Again2:
     // 1. RTM begin
     if(_xbegin() != _XBEGIN_STARTED) {
         // random backoff
-        // sum= 0; 
+        // sum= 0;
         // for (int i=(rdtsc() % 1024); i>0; i--) sum += i;
         goto Again2;
     }
@@ -682,6 +709,12 @@ Again2:
 
         if (lp->k(jj) == key) { // found: do nothing, return
            _xend();
+            stop = std::chrono::high_resolution_clock::now();
+            if (op >= 0) {
+              ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                  (stop-start).count());
+              ti[op].second = op;
+            }
            return;
         }
 
@@ -706,6 +739,7 @@ Again2:
   } // end of Part 1
 
     /* Part 2. leaf node */
+  start2 = std::chrono::high_resolution_clock::now();
   {
     bleaf *lp= parray[0];
     bleafMeta meta= *((bleafMeta *)lp);
@@ -737,6 +771,18 @@ Again2:
            // 1.3.2 flush
            clwb(lp); sfence();
 
+            stop2 = std::chrono::high_resolution_clock::now();
+            if (op >= 0) {
+              li[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                  (stop2-start2).count());
+            }
+            stop = std::chrono::high_resolution_clock::now();
+            if (op >= 0) {
+              ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                  (stop-start).count());
+              ti[op].second = op;
+            }
+
            return;
        }
 
@@ -763,11 +809,24 @@ Again2:
          lp->setBothWords(&meta);
          clwb(lp); sfence();
 
+          stop2 = std::chrono::high_resolution_clock::now();
+          if (op >= 0) {
+            li[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                (stop2-start2).count());
+          }
+          stop = std::chrono::high_resolution_clock::now();
+          if (op >= 0) {
+            ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                (stop-start).count());
+            ti[op].second = op;
+          }
+
          return;
        }
     } // end of not full
 
     /* 2. leaf is full, split */
+    start3 = std::chrono::high_resolution_clock::now();
 
     // 2.1 get sorted positions
     int sorted_pos[LEAF_KEY_NUM];
@@ -903,6 +962,23 @@ Again2:
 
                 // unlock after all changes are globally visible
                 p->lock()= 0;
+
+                stop3 = std::chrono::high_resolution_clock::now();
+                if (op >= 0) {
+                  sp[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                      (stop3-start3).count());
+                }
+                stop2 = std::chrono::high_resolution_clock::now();
+                if (op >= 0) {
+                  li[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                      (stop2-start2).count());
+                }
+                stop = std::chrono::high_resolution_clock::now();
+                if (op >= 0) {
+                  ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                                      (stop-start).count());
+                  ti[op].second = op;
+                }
                 return;
             }
             
@@ -963,10 +1039,43 @@ Again2:
         // unlock new root
         newp->lock()= 0;
 
+        stop3 = std::chrono::high_resolution_clock::now();
+        if (op >= 0) {
+          sp[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                              (stop3-start3).count());
+        }
+        stop2 = std::chrono::high_resolution_clock::now();
+        if (op >= 0) {
+          li[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                              (stop2-start2).count());
+        }
+        stop = std::chrono::high_resolution_clock::now();
+        if (op >= 0) {
+          ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                              (stop-start).count());
+          ti[op].second = op;
+        }
         return;
         
 #undef RIGHT_KEY_NUM
 #undef LEFT_KEY_NUM
+    }
+
+    stop3 = std::chrono::high_resolution_clock::now();
+    if (op >= 0) {
+      sp[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                          (stop3-start3).count());
+    }
+    stop2 = std::chrono::high_resolution_clock::now();
+    if (op >= 0) {
+      li[op] += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                          (stop2-start2).count());
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    if (op >= 0) {
+      ti[op].first += (std::chrono::duration_cast<std::chrono::nanoseconds>
+                          (stop-start).count());
+      ti[op].second = op;
     }
 }
 
@@ -1246,8 +1355,8 @@ void lbtree::randomize (Pointer8B pnode, int level)
            int bb= (int)(drand48()*num);
 
            if (aa != bb) {
-               swap(lp->fgpt[pos[aa]], lp->fgpt[pos[bb]]);
-               swap(lp->ent[pos[aa]],  lp->ent[pos[bb]]);
+               swapp(lp->fgpt[pos[aa]], lp->fgpt[pos[bb]]);
+               swapp(lp->ent[pos[aa]],  lp->ent[pos[bb]]);
            }
         }
     }
@@ -1465,13 +1574,13 @@ tree * initTree(void *nvm_addr, bool recover)
     return mytree;
 }
 
-int main (int argc, char *argv[])
-{
-    printf("NON_LEAF_KEY_NUM= %d, LEAF_KEY_NUM= %d, nonleaf size= %lu, leaf size= %lu\n",
-           NON_LEAF_KEY_NUM, LEAF_KEY_NUM, sizeof(bnode), sizeof(bleaf));
-    assert((sizeof(bnode) == NONLEAF_SIZE)&&(sizeof(bleaf) == LEAF_SIZE));
+// int main (int argc, char *argv[])
+// {
+//     printf("NON_LEAF_KEY_NUM= %d, LEAF_KEY_NUM= %d, nonleaf size= %lu, leaf size= %lu\n",
+//            NON_LEAF_KEY_NUM, LEAF_KEY_NUM, sizeof(bnode), sizeof(bleaf));
+//     assert((sizeof(bnode) == NONLEAF_SIZE)&&(sizeof(bleaf) == LEAF_SIZE));
 
-    initUseful();
+//     initUseful();
 
-    return parse_command (argc, argv);
-}
+//     return parse_command (argc, argv);
+// }

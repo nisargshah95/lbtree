@@ -36,6 +36,36 @@
 
 #define LEAF_KEY_NUM        (14) 
 
+/* ----------------------------------------------------------------- *
+ useful structure
+ * ----------------------------------------------------------------- */
+static int last_slot_in_line[LEAF_KEY_NUM];
+
+static void initUseful(void)
+{
+    // line 0
+    last_slot_in_line[0]= 2;
+    last_slot_in_line[1]= 2;
+    last_slot_in_line[2]= 2;
+
+    // line 1
+    last_slot_in_line[3]= 6;
+    last_slot_in_line[4]= 6;
+    last_slot_in_line[5]= 6;
+    last_slot_in_line[6]= 6;
+
+    // line 2
+    last_slot_in_line[7]= 10;
+    last_slot_in_line[8]= 10;
+    last_slot_in_line[9]= 10;
+    last_slot_in_line[10]=10;
+
+    // line 3
+    last_slot_in_line[11]=13;
+    last_slot_in_line[12]=13;
+    last_slot_in_line[13]=13;
+}
+
 /* ---------------------------------------------------------------------- */
 /**
  * Pointer8B defines a class that can be assigned to either bnode or bleaf.
@@ -203,7 +233,7 @@ class treeMeta {
 
 class lbtree: public tree {
   public:  // root and level
-    
+
     treeMeta * tree_meta;
     
   public:
@@ -255,7 +285,7 @@ class lbtree: public tree {
     }
 
     // insert (key, ptr)
-    void insert (key_type key, void *ptr);
+    void insert (key_type key, const void *ptr);
     
     // delete key
     void del (key_type key);
@@ -281,6 +311,8 @@ public:
     int level () {return tree_meta->root_level;}
     
 }; // lbtree
+
+void printStats();
 
 /* ---------------------------------------------------------------------- */
 #endif /* _LBTREE_H */

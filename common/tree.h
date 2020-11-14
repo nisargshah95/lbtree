@@ -93,14 +93,14 @@ static inline unsigned long long rdtsc(void)
     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
 
-#define min(x,y)    ((x)<=(y) ? (x) : (y))
-#define max(x,y)    ((x)<=(y) ? (y) : (x))
+#define minn(x,y)    ((x)<=(y) ? (x) : (y))
+#define maxx(x,y)    ((x)<=(y) ? (y) : (x))
 
 // compute ceiling(x/y) and floor(x/y)
 #define ceiling(x, y)  (((x) + (y) - 1) / (y))
 #define floor(x, y)    ((x) / (y))
 
-#define swap(x, y) \
+#define swapp(x, y) \
 do { auto _t=(x); (x)=(y); (y)=_t; } while(0)
 
 /* ---------------------------------------------------------------------- */
@@ -165,7 +165,7 @@ class tree {
    * @param key   the index key
    * @param ptr   the record pointer
    */
-   virtual void insert (key_type key, void * ptr)
+   virtual void insert (key_type key, const void * ptr)
    {
        fprintf (stderr, "Not implemented!\n");
        exit (1);
